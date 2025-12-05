@@ -1,531 +1,772 @@
 # Open5GS-Testbed
 
-A comprehensive 5G Core Network testbed integrating **Open5GS** and **UERANSIM** for research, testing, and educational purposes. This testbed supports multiple network slices and provides flexible deployment options to suit different testing scenarios.
+Testbed 5G Core Network yang komprehensif mengintegrasikan **Open5GS** dan **UERANSIM** untuk penelitian, testing, dan keperluan edukasi. Testbed ini mendukung multiple network slices dan menyediakan opsi deployment yang fleksibel sesuai dengan skenario testing yang berbeda.
 
-## 📋 Overview
+## 📋 Ringkasan
 
-This repository provides a complete 5G standalone (SA) network testing environment with:
+Repository ini menyediakan lingkungan testing 5G standalone (SA) yang lengkap dengan:
 
-- **Open5GS 5G Core Network**: Full 5GC implementation with AMF, SMF, UPF, NRF, and all control plane functions
-- **UERANSIM**: Open-source 5G UE and RAN (gNB) simulator for testing the core network
-- **Multi-Slice Support**: Three pre-configured network slices (eMBB, URLLC, mMTC)
-- **Flexible Deployment**: Native, Docker Compose, and Kubernetes (K3s) deployment options
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    UERANSIM Component                           │
-│  ┌──────────┐         ┌──────────┐                              │
-│  │  nr-gnb  │ ◄─────► │  nr-ue   │                              │
-│  │ (gNodeB) │         │   (UE)   │                              │
-│  └────┬─────┘         └────┬─────┘                              │ 
-│       │ N2 (NGAP)          │ uesimtun0 (Data)                   │
-└───────┼────────────────────┼────────────────────────────────────┘
-        │                    │
-        │ SCTP/38412         │ GTP-U/2152
-        ▼                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   Open5GS 5G Core Network                       │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Control Plane                                          │    │
-│  │  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐            │    │
-│  │  │ AMF │  │ SMF │  │ NRF │  │ AUSF│  │ UDM │  ...       │    │
-│  │  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  User Plane                                             │    │
-│  │  ┌─────┐    ogstun (10.45.0.0/24)  - eMBB               │    │
-│  │  │ UPF │ ── ogstun2 (10.45.1.0/24) - URLLC              │    │
-│  │  └─────┘    ogstun3 (10.45.2.0/24) - mMTC               │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Data Store                                             │    │
-│  │  ┌─────────┐  ┌────────┐                                │    │
-│  │  │ MongoDB │  │ WebUI  │                                │    │
-│  │  └─────────┘  └────────┘                                │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                      Internet
-```
-
-## 🎯 Key Features
-
-### Open5GS Component
-
-- **Complete 5G Core Network Functions**:
-  - **AMF** (Access and Mobility Management Function)
-  - **SMF** (Session Management Function)
-  - **UPF** (User Plane Function)
-  - **NRF** (Network Repository Function)
-  - **AUSF** (Authentication Server Function)
-  - **UDM** (Unified Data Management)
-  - **UDR** (Unified Data Repository)
-  - **PCF** (Policy Control Function)
-  - **NSSF** (Network Slice Selection Function)
-  - **SCP** (Service Communication Proxy)
-  - **BSF** (Binding Support Function)
-
-- **Three Network Slices**:
-  | Slice | SST | DNN | Subnet | Use Case |
-  |-------|-----|-----|--------|----------|
-  | **eMBB** | 1 | embb.testbed | 10.45.0.0/24 | Enhanced Mobile Broadband |
-  | **URLLC** | 2 | urllc.v2x | 10.45.1.0/24 | Ultra-Reliable Low Latency (V2X) |
-  | **mMTC** | 3 | mmtc.testbed | 10.45.2.0/24 | Massive Machine Type (IoT) |
-
-- **Three Deployment Options**:
-  1. **Native Installation**: Systemd services on Ubuntu (production-like)
-  2. **Docker Compose**: Containerized NFs with hybrid architecture
-  3. **Kubernetes (K3s)**: Orchestrated deployment with Calico CNI
-
-### UERANSIM Component
-
-- **gNB Simulator** (`nr-gnb`): 5G base station implementation
-  - NGAP (N2) interface to AMF
-  - GTP-U (N3) interface to UPF
-  - Multi-slice support
-  
-- **UE Simulator** (`nr-ue`): 5G user equipment implementation
-  - Full NAS registration procedure
-  - PDU session establishment
-  - TUN interface creation (`uesimtun0`)
-  - Multi-DNN support
-
-- **Supporting Tools**:
-  - `nr-cli`: Interactive command-line interface
-  - `nr-binder`: Network namespace binding utility
-
-## 📂 Repository Structure
-
-```
-Open5GS-Testbed/
-├── open5gs/                          # Open5GS 5G Core Network
-│   ├── configs-reference/            # Reference configuration files for all NFs
-│   ├── open5gs-compose/              # Docker Compose deployment
-│   │   ├── docker-compose.yml
-│   │   ├── setup-host-network-*.sh   # Network setup scripts
-│   │   ├── amf/, smf/, upf/, ...     # Per-NF configurations
-│   │   └── README.md                 # Compose deployment guide
-│   ├── open5gs-k3s-calico/           # Kubernetes deployment
-│   │   ├── 00-foundation/            # K3s foundation resources
-│   │   ├── 01-configmaps/            # NF configurations
-│   │   ├── 02-control-plane/         # Control plane deployments
-│   │   ├── 03-session-mgmt/          # Session management
-│   │   ├── 04-user-plane/            # User plane deployments
-│   │   ├── deploy-k3s-calico.sh      # Deployment script
-│   │   └── README.md                 # K3s deployment guide
-│   ├── scripts/                      # Helper scripts for native deployment
-│   ├── Open5GS Setup and Configuration.md  # Native installation guide
-│   └── README.md                     # Open5GS overview
-├── ueransim/                         # UERANSIM RAN Simulator
-│   ├── build/                        # Pre-compiled binaries
-│   │   ├── nr-gnb                    # gNB simulator
-│   │   ├── nr-ue                     # UE simulator
-│   │   ├── nr-cli                    # CLI tool
-│   │   └── nr-binder                 # Network binder
-│   ├── configs/                      # Configuration files
-│   │   ├── open5gs-gnb-local.yaml    # gNB configuration
-│   │   └── open5gs-ue-embb.yaml      # UE configuration
-│   └── README.md                     # UERANSIM usage guide
-└── README.md                         # This file
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Ubuntu 20.04/22.04 or similar Linux distribution
-- Root/sudo access
-- For Docker Compose: Docker and Docker Compose installed
-- For K3s: K3s cluster with Calico CNI
-- For UERANSIM: SCTP kernel module
-
-### Option 1: Native Deployment
-
-```bash
-# Follow the native installation guide
-cd open5gs
-cat "Open5GS Setup and Configuration.md"
-
-# Install Open5GS packages
-sudo apt install software-properties-common
-sudo add-apt-repository ppa:open5gs/latest
-sudo apt update
-sudo apt install open5gs
-
-# Configure and start services
-# See detailed guide for configuration steps
-sudo systemctl start open5gs-amfd open5gs-smfd open5gs-upfd
-```
-
-### Option 2: Docker Compose Deployment
-
-```bash
-# Navigate to compose directory
-cd open5gs/open5gs-compose
-
-# Setup host network (choose one option)
-sudo bash setup-host-network-eduvpn.sh
-# OR
-sudo bash setup-host-network-tailscale.sh
-# OR
-sudo bash setup-host-network-ethernet-icn.sh
-
-# Start Open5GS containers
-docker compose up -d
-
-# Verify services
-docker compose ps
-```
-
-### Option 3: Kubernetes (K3s) Deployment
-
-```bash
-# Navigate to K3s directory
-cd open5gs/open5gs-k3s-calico
-
-# Setup K3s environment
-sudo bash setup-k3s-environment-calico.sh
-
-# Build and import container images
-bash build-import-containers.sh
-
-# Deploy Open5GS to K3s
-bash deploy-k3s-calico.sh
-
-# Verify deployment
-kubectl get pods -n open5gs
-```
-
-### Running UERANSIM
-
-```bash
-# Navigate to UERANSIM directory
-cd ueransim
-
-# Start gNB (in one terminal)
-./build/nr-gnb -c configs/open5gs-gnb-local.yaml
-
-# Start UE (in another terminal)
-./build/nr-ue -c configs/open5gs-ue-embb.yaml
-
-# Test connectivity
-ping -I uesimtun0 -c 4 8.8.8.8
-```
-
-## 📚 Documentation
-
-### Open5GS Guides
-
-| Guide | Description | Path |
-|-------|-------------|------|
-| **Native Installation** | Step-by-step systemd service deployment | [`open5gs/Open5GS Setup and Configuration.md`](open5gs/Open5GS%20Setup%20and%20Configuration.md) |
-| **Docker Compose** | Hybrid containerized deployment guide | [`open5gs/open5gs-compose/README.md`](open5gs/open5gs-compose/README.md) |
-| **Kubernetes (K3s)** | K3s orchestration with Calico CNI | [`open5gs/open5gs-k3s-calico/README.md`](open5gs/open5gs-k3s-calico/README.md) |
-| **Configuration Reference** | All NF YAML configurations | [`open5gs/configs-reference/`](open5gs/configs-reference/) |
-| **DNN Configuration** | Network slice setup details | [`open5gs/open5gs-compose/DNN-configuration.md`](open5gs/open5gs-compose/DNN-configuration.md) |
-
-### UERANSIM Guides
-
-| Guide | Description | Path |
-|-------|-------------|------|
-| **UERANSIM Usage** | Complete gNB/UE setup and testing | [`ueransim/README.md`](ueransim/README.md) |
-| **gNB Configuration** | Base station configuration | [`ueransim/configs/open5gs-gnb-local.yaml`](ueransim/configs/open5gs-gnb-local.yaml) |
-| **UE Configuration** | User equipment configuration | [`ueransim/configs/open5gs-ue-embb.yaml`](ueransim/configs/open5gs-ue-embb.yaml) |
-
-## 🔬 Testing Scenarios
-
-### Basic Connectivity Test
-
-```bash
-# Start Open5GS (choose deployment method)
-# Start UERANSIM gNB and UE
-
-# Test basic connectivity
-ping -I uesimtun0 -c 4 8.8.8.8
-
-# Test HTTP traffic
-curl --interface uesimtun0 http://example.com
-
-# Test throughput
-iperf3 -c <server-ip> -B 10.45.0.2
-```
-
-### Network Slice Testing
-
-```bash
-# Configure UE with multiple PDU sessions (eMBB + URLLC)
-# Check created TUN interfaces
-ip addr show | grep uesimtun
-
-# Test eMBB slice (high bandwidth)
-ping -I uesimtun0 -c 10 8.8.8.8
-
-# Test URLLC slice (low latency)
-ping -I uesimtun1 -c 10 8.8.8.8
-
-# Compare latencies
-```
-
-### Advanced Testing
-
-```bash
-# Use nr-binder for traffic isolation
-cd ueransim
-./build/nr-binder 10.45.0.2 traceroute 8.8.8.8
-
-# Capture 5G protocol traffic
-sudo tcpdump -i any -n sctp -w n2-interface.pcap
-sudo tcpdump -i any -n udp port 2152 -w n3-interface.pcap
-
-# Monitor with Wireshark
-wireshark n2-interface.pcap
-```
-
-## 🛠️ Common Operations
-
-### Managing Subscribers
-
-#### Via WebUI (All Deployments)
-```bash
-# Access Open5GS WebUI
-# URL: http://localhost:9999
-# Login: admin / 1423
-
-# Add subscriber:
-# - IMSI: 001010000000001
-# - K: 465B5CE8B199B49FAA5F0A2EE238A6BC
-# - OPc: E8ED289DEBA952E4283B54E88E6183CA
-# - Select DNN: embb.testbed, urllc.v2x, or mmtc.testbed
-```
-
-#### Via MongoDB CLI
-```bash
-# Connect to MongoDB
-mongo
-
-# Switch to open5gs database
-use open5gs
-
-# Add subscriber
-db.subscribers.insert({
-  "imsi": "001010000000001",
-  "security": {
-    "k": "465B5CE8B199B49FAA5F0A2EE238A6BC",
-    "opc": "E8ED289DEBA952E4283B54E88E6183CA",
-    "amf": "8000"
-  },
-  "slice": [{
-    "sst": 1,
-    "default_indicator": true,
-    "session": [{
-      "name": "embb.testbed",
-      "type": 3
-    }]
-  }]
-})
-```
-
-### Monitoring Logs
-
-#### Native Deployment
-```bash
-sudo journalctl -u open5gs-amfd -f
-sudo journalctl -u open5gs-upfd -f
-```
-
-#### Docker Compose
-```bash
-cd open5gs/open5gs-compose
-docker compose logs -f amf
-docker compose logs -f upf
-```
-
-#### K3s Deployment
-```bash
-kubectl logs -n open5gs -l app=amf -f
-kubectl logs -n open5gs -l app=upf -f
-```
-
-### Restarting Services
-
-#### Native
-```bash
-sudo systemctl restart open5gs-amfd
-sudo systemctl restart open5gs-upfd
-```
-
-#### Docker Compose
-```bash
-docker compose restart amf
-docker compose restart upf
-```
-
-#### K3s
-```bash
-kubectl rollout restart -n open5gs deployment/amf
-kubectl rollout restart -n open5gs deployment/upf
-```
-
-## 🔧 Troubleshooting
-
-### Open5GS Issues
-
-| Issue | Solution | Documentation |
-|-------|----------|---------------|
-| AMF not starting | Check PLMN configuration, verify SCTP module | Native guide |
-| UPF TUN creation failed | Verify NET_ADMIN capability, check sysctl | Compose guide |
-| MongoDB connection issues | Check MongoDB service status, verify port 27017 | All guides |
-| NF registration failures | Check NRF connectivity, verify SBI addresses | K3s guide |
-
-### UERANSIM Issues
-
-| Issue | Solution | Documentation |
-|-------|----------|---------------|
-| gNB can't connect to AMF | Verify AMF IP/port, check SCTP module, test connectivity | UERANSIM guide |
-| UE authentication failure | Check K/OPc match, verify IMSI in MongoDB | UERANSIM guide |
-| PDU session rejected | Verify DNN in SMF config, check slice permissions | UERANSIM guide |
-| No internet from UE | Check UPF NAT rules, verify IP forwarding | UERANSIM guide |
-
-**Detailed troubleshooting**: See individual component README files for comprehensive solutions.
-
-## 🌐 Network Configuration
-
-### PLMN Configuration
-- **MCC**: 001 (Test network)
-- **MNC**: 01
-
-### IP Addressing
-
-#### Control Plane (Native)
-- AMF: 127.0.0.5
-- SMF: 127.0.0.4
-- NRF: 127.0.0.10
-- Other NFs: 127.0.0.x
-
-#### Control Plane (Docker/K3s)
-- Network: 10.10.0.0/24
-- AMF: 10.10.0.5
-- SMF: 10.10.0.4
-- UPF: 10.10.0.7
-- NRF: 10.10.0.10
-
-#### User Plane (All Deployments)
-- eMBB subnet: 10.45.0.0/24 (ogstun)
-- URLLC subnet: 10.45.1.0/24 (ogstun2)
-- mMTC subnet: 10.45.2.0/24 (ogstun3)
-
-## 🎓 Educational Use
-
-This testbed is designed for:
-- **5G Protocol Research**: Full 3GPP-compliant implementation
-- **Network Slice Experimentation**: Pre-configured eMBB, URLLC, mMTC slices
-- **Performance Testing**: Throughput, latency, QoS validation
-- **Student Labs**: Hands-on 5G core network experience
-- **Development**: Testing 5G applications and services
-
-### Sample Lab Exercises
-
-1. **Basic 5G Connectivity**: Deploy Open5GS, connect UERANSIM, test data plane
-2. **Network Slice QoS**: Compare latency/throughput across eMBB vs URLLC slices
-3. **Multi-UE Scenarios**: Register multiple UEs with different slice configurations
-4. **Handover Testing**: Test UE mobility between cells (multiple gNBs)
-5. **Protocol Analysis**: Capture and analyze NGAP, GTP-U, NAS messages
-6. **Deployment Comparison**: Compare Native vs Docker vs K8s performance
-
-## 🔐 Security Notes
-
-⚠️ **This is a testbed environment - NOT production-ready!**
-
-### Current Security Posture
-- Test PLMN codes (001/01)
-- Example subscriber credentials
-- No TLS for inter-NF communication
-- MongoDB without authentication
-- Open5GS WebUI with default credentials
-
-### For Production Deployment
-- Use real PLMN codes from your operator license
-- Generate unique K/OPc per subscriber
-- Enable TLS for all NF-to-NF communication
-- Secure MongoDB with authentication and TLS
-- Change all default passwords
-- Implement proper network segmentation
-- Use hardware security modules (HSM) for key storage
-- Enable SELinux/AppArmor for container isolation
-
-## 📊 Performance Characteristics
-
-### Tested Performance (Reference)
-
-| Metric | Native | Docker Compose | K3s |
-|--------|--------|----------------|-----|
-| **Registration Time** | ~150ms | ~200ms | ~250ms |
-| **PDU Session Setup** | ~100ms | ~150ms | ~180ms |
-| **Throughput (eMBB)** | 500+ Mbps | 450+ Mbps | 400+ Mbps |
-| **Latency (URLLC)** | ~15ms | ~20ms | ~25ms |
-| **Concurrent UEs** | 100+ | 80+ | 60+ |
-
-*Note: Performance varies based on hardware, network conditions, and configuration.*
-
-## 🤝 Contributing
-
-Contributions are welcome! Areas for improvement:
-- Additional network slice configurations
-- Performance optimization
-- Additional deployment scenarios
-- Enhanced monitoring and observability
-- Test automation scripts
-- Documentation improvements
-
-## 📖 References
-
-### Open5GS
-- **Official Website**: https://open5gs.org/
-- **GitHub Repository**: https://github.com/open5gs/open5gs
-- **Documentation**: https://open5gs.org/open5gs/docs/
-
-### UERANSIM
-- **GitHub Repository**: https://github.com/aligungr/UERANSIM
-- **Wiki**: https://github.com/aligungr/UERANSIM/wiki
-
-### 3GPP Standards
-- **5G System Architecture**: TS 23.501
-- **NAS Protocol**: TS 24.501
-- **NGAP Protocol**: TS 38.413
-- **5G QoS**: TS 23.503
-
-### Additional Resources
-- **3GPP Specifications**: https://www.3gpp.org/DynaReport/38-series.htm
-- **Docker Documentation**: https://docs.docker.com/
-- **Kubernetes Documentation**: https://kubernetes.io/docs/
-
-## 📜 License
-
-This testbed integrates open-source components:
-- **Open5GS**: GNU Affero General Public License v3.0
-- **UERANSIM**: GNU General Public License v3.0
-
-Please refer to individual component licenses for detailed terms.
-
-## 👥 Authors
-
-- **Repository Maintainer**: rayhanegar
-- **Open5GS**: Open5GS Project Team
-- **UERANSIM**: aligungr and contributors
-
-## 📞 Support
-
-For issues and questions:
-1. Check the relevant README.md in component directories
-2. Review troubleshooting sections
-3. Consult official documentation
-4. Open an issue in this repository
+- **Open5GS 5G Core Network**: Implementasi 5GC lengkap dengan AMF, SMF, UPF, NRF, dan semua fungsi control plane
+- **UERANSIM**: Simulator 5G UE dan RAN (gNB) open-source untuk testing core network
+- **Multi-Slice Support**: Tiga network slices yang pre-configured (eMBB, URLLC, mMTC)
+- **Flexible Deployment**: Opsi deployment Native, Docker Compose, dan Kubernetes (K3s)
 
 ---
 
-**Status**: ✅ Active Development | 🧪 Testbed Environment | 📚 Educational Use
+## 📋 Instalasi dan Setup
 
-Last Updated: October 28, 2025
+### Step 1: Persiapan Sistem
+
+#### 1. Update Sistem dan Install Dependencies
+Lakukan update sistem dan install beberapa dependencies dasar yang diperlukan untuk testbed Open5GS.
+```bash
+sudo apt-get update
+sudo apt-get upgrade -y
+sudo apt-get install -y \
+    curl \
+    git \
+    iptables \
+    iptables-persistent \
+    net-tools \
+    iputils-ping \
+    traceroute \
+    tcpdump \
+    wireshark \
+    wireshark-common
+```
+
+#### 2. Install Docker
+Docker diperlukan untuk menjalankan beberapa komponen dalam container. Berikut langkah instalasinya:
+```bash
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+Tambahkan repository Docker:
+```bash
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+```
+Install paket Docker:
+```bash
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl start docker
+```
+
+#### 3. Install SCTP Library
+Library SCTP diperlukan untuk komunikasi antara komponen 5G Core dan UERANSIM. Install dengan:
+```bash
+sudo apt-get update && sudo apt-get install -y libsctp1 lksctp-tools
+```
+
+#### 4. Install MongoDB
+MongoDB digunakan sebagai database untuk Open5GS. Berikut langkah instalasinya:
+Install GPG key dan repository MongoDB:
+```bash
+sudo apt-get install gnupg curl
+curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.2.list
+```
+Install MongoDB dan aktifkan service:
+```bash
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+sudo systemctl start mongod
+sudo systemctl enable mongod
+```
+Konfigurasi agar MongoDB dapat diakses dari luar (ubah bindIp):
+```bash
+sudo nano /etc/mongod.conf
+# Ubah bindIp menjadi 0.0.0.0
+sudo systemctl restart mongod
+```
+
+#### 5. Membuat Direktori Log
+Direktori log diperlukan untuk menyimpan log dari Open5GS.
+```bash
+sudo mkdir -p /mnt/data/open5gs-logs
+sudo chmod 777 /mnt/data/open5gs-logs
+```
+
+#### 6. Clone Repository
+Clone repository testbed ke server Anda:
+```bash
+git clone https://github.com/rayhanegar/Open5GS-Testbed
+```
+
+---
+
+## Step 2: Setup K3s Environment dengan Calico
+
+#### 1. Navigasi ke Direktori K3s
+Pindah ke direktori K3s yang berisi script setup:
+```bash
+cd ~/Open5GS-Testbed/open5gs/open5gs-k3s-calico
+```
+
+#### 2. Jalankan Setup Script
+Pastikan script dapat dieksekusi dan jalankan setup:
+```bash
+chmod +x setup-k3s-environment-calico.sh
+sudo ./setup-k3s-environment-calico.sh
+```
+
+Script akan melakukan beberapa konfigurasi otomatis:
+- Install K3s (lightweight Kubernetes)
+- Setup Calico CNI untuk networking
+- Konfigurasi static IP pool (10.10.0.0/24)
+- Setup persistent storage
+- Enable SCTP kernel module
+- Konfigurasi IP forwarding
+
+#### 3. Verifikasi Instalasi K3s
+Setelah setup selesai, verifikasi instalasi K3s dan status node:
+```bash
+# Cek status K3s
+sudo systemctl status k3s
+
+# Cek node Kubernetes
+kubectl get nodes
+```
+Output yang diharapkan:
+```
+NAME        STATUS   ROLES           AGE   VERSION
+<hostname>  Ready    control-plane   Xm    v1.2X.X
+```
+
+---
+
+## Step 3: Build dan Import Container Images
+
+Sebelum menjalankan build script, lakukan modifikasi berikut pada beberapa file agar proses build dan import berjalan lancar:
+
+#### 1. Modifikasi build-import-containers.sh
+Tambahkan `sudo` sebelum command docker pada file berikut:
+`open5gs/open5gs-k3s-calico/build-import-containers.sh`
+
+#### 2. Modifikasi Dockerfile untuk Ping Tools
+Tambahkan instalasi ping tools pada setiap Dockerfile di direktori berikut:
+`open5gs/open5gs-compose/*/Dockerfile`
+
+Contoh perubahan:
+```dockerfile
+# Install system dependencies and Open5GS scp in a single layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common gnupg && \
+    add-apt-repository ppa:open5gs/latest && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        open5gs-scp \
+        open5gs-common \
+        gosu \
+        ca-certificates \
+        netbase \
+        iputils-ping \
+        curl && \
+    mkdir -p /var/log/open5gs /etc/open5gs/tls /etc/open5gs/custom /var/run/open5gs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+```
+
+#### 3. Modifikasi YAML: Ubah Address MongoDB
+Ubah address MongoDB di file berikut dengan IP address host Anda:
+- `open5gs/open5gs-compose/pcf/pcf.yaml`
+- `open5gs/open5gs-compose/udr/udr.yaml`
+
+Contoh perubahan:
+```yaml
+db_uri: mongodb://192.168.14.137:27017/open5gs
+```
+
+#### 4. Jalankan Build Script
+Setelah modifikasi selesai, pastikan script dapat dieksekusi dan jalankan build untuk membuat dan mengimport image Open5GS:
+```bash
+chmod +x build-import-containers.sh
+sudo ./build-import-containers.sh
+```
+
+#### 5. Verifikasi Image
+Setelah proses build selesai, verifikasi image yang sudah diimport ke K3s:
+```bash
+sudo k3s crictl images
+```
+
+---
+
+## Step 4: Deploy Open5GS ke K3s
+
+Sebelum menjalankan deployment, lakukan modifikasi berikut pada beberapa file agar proses deployment berjalan lancar:
+
+#### 1. Modifikasi deploy-k3s-calico.sh
+Pastikan fungsi `deploy_pod` sudah benar untuk menghindari false positive error. Contoh cuplikan kode yang benar:
+```bash
+deploy_pod() {
+    local name=$1
+    local file=$2
+    local label=$3
+
+    POD_DEPLOY_START[$name]=$(get_timestamp_ms)
+    print_info "Deploying $name..."
+
+    kubectl apply -f "$file" &>/dev/null
+
+    # Wait for pod to exist first (avoid race condition in parallel deployments)
+    local retries=0
+    until kubectl get pod -l "$label" -n open5gs &>/dev/null; do
+        sleep 0.5
+        retries=$((retries + 1))
+        if [ $retries -gt 20 ]; then
+            POD_DEPLOY_END[$name]=$(get_timestamp_ms)
+            POD_READY_TIME[$name]=$(calc_duration ${POD_DEPLOY_START[$name]} ${POD_DEPLOY_END[$name]})
+            print_error "$name pod failed to be created after ${POD_READY_TIME[$name]}ms"
+            return 1
+        fi
+    done
+
+    # Wait for pod to be ready (increased timeout for image pull)
+    if kubectl wait --for=condition=ready pod -l "$label" -n open5gs --timeout=180s &>/dev/null; then
+        POD_DEPLOY_END[$name]=$(get_timestamp_ms)
+        POD_READY_TIME[$name]=$(calc_duration ${POD_DEPLOY_START[$name]} ${POD_DEPLOY_END[$name]})
+        print_success "$name ready in ${POD_READY_TIME[$name]}ms"
+        return 0
+    else
+        POD_DEPLOY_END[$name]=$(get_timestamp_ms)
+        POD_READY_TIME[$name]=$(calc_duration ${POD_DEPLOY_START[$name]} ${POD_DEPLOY_END[$name]})
+        print_error "$name failed to start after ${POD_READY_TIME[$name]}ms"
+        return 1
+    fi
+}
+```
+
+#### 2. Modifikasi mongod-external.yaml
+Ubah IP address MongoDB dengan IP address host Anda pada file berikut:
+`open5gs/open5gs-k3s-calico/00-foundation/mongod-external.yaml`
+
+Contoh perubahan:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: open5gs
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 27017
+    targetPort: 27017
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: mongodb
+  namespace: open5gs
+subsets:
+- addresses:
+  - ip: 192.168.14.137  # Ganti dengan IP MongoDB host Anda
+  ports:
+  - port: 27017
+```
+
+#### 3. Jalankan Deployment Script
+Setelah modifikasi selesai, pastikan script dapat dieksekusi dan jalankan deployment:
+```bash
+chmod +x deploy-k3s-calico.sh
+sudo ./deploy-k3s-calico.sh
+```
+
+Script akan melakukan:
+- Membuat namespace `open5gs`
+- Setup Calico IPPool
+- Membuat service MongoDB
+- Deploy Network Function (NF) sesuai urutan dependency
+- Generate deployment report
+
+#### 4. Monitor Proses Deployment
+Pantau proses deployment untuk memastikan semua pod berjalan dengan baik:
+```bash
+kubectl get pods -n open5gs -w
+```
+Tunggu hingga semua pod berstatus `Running` (±2-3 menit).
+
+#### 5. Verifikasi Deployment
+Setelah deployment selesai, verifikasi semua pod sudah berjalan:
+```bash
+kubectl get pods -n open5gs
+```
+Output yang diharapkan (semua harus Running):
+```
+NAME      READY   STATUS    RESTARTS   AGE
+nrf-0     1/1     Running   0          2m
+scp-0     1/1     Running   0          2m
+udr-0     1/1     Running   0          2m
+udm-0     1/1     Running   0          2m
+ausf-0    1/1     Running   0          2m
+pcf-0     1/1     Running   0          2m
+nssf-0    1/1     Running   0          2m
+amf-0     1/1     Running   0          2m
+smf-0     1/1     Running   0          2m
+upf-0     1/1     Running   0          2m
+```
+
+---
+
+## Verifikasi Deployment
+
+### 1. Cek Status Semua NF
+Verifikasi semua pod Open5GS sudah berjalan dengan baik:
+```bash
+# List semua pods dengan detail
+kubectl get pods -n open5gs -o wide
+```
+
+Cek log untuk NF tertentu jika diperlukan:
+```bash
+# Check logs untuk NF tertentu
+kubectl logs -n open5gs amf-0
+kubectl logs -n open5gs smf-0
+kubectl logs -n open5gs upf-0
+```
+
+---
+
+### 2. Verifikasi Static IP Assignment
+Jalankan script verifikasi untuk memastikan setiap NF mendapat static IP sesuai konfigurasi:
+```bash
+# Run verification script
+sudo ./verify-static-ips.sh
+```
+
+Output yang diharapkan:
+```
+✓ nrf-0: 10.10.0.10
+✓ scp-0: 10.10.0.200
+✓ amf-0: 10.10.0.5
+✓ smf-0: 10.10.0.4
+✓ upf-0: 10.10.0.7
+... (semua NF dengan IP yang sesuai)
+```
+
+---
+
+### 3. Verifikasi MongoDB Connectivity
+
+#### Pre-requisite: Cache MongoDB Image
+Sebelum menjalankan script verifikasi, pastikan image MongoDB sudah ter-cache di K3s untuk menghindari timeout saat pulling image:
+```bash
+# Pull dan import MongoDB image ke K3s containerd
+sudo ctr -n k8s.io images pull docker.io/library/mongo:5.0
+
+# Verifikasi image sudah tersedia
+sudo crictl images | grep mongo
+```
+
+#### Konfigurasi Script
+Ubah `MONGO_IP` pada script `open5gs/open5gs-k3s-calico/verify-mongodb.sh` sesuai dengan IP host Anda:
+```bash
+sudo nano verify-mongodb.sh
+# Ubah MONGO_IP="192.168.14.137" dengan IP host Anda
+```
+
+#### Jalankan Verifikasi
+```bash
+# Run MongoDB verification
+sudo ./verify-mongodb.sh
+```
+
+Output yang diharapkan:
+```
+=== MongoDB Connectivity Test ===
+Test 1: Network connectivity to 192.168.14.137:27017
+✓ Port 27017 is reachable
+
+Test 2: MongoDB authentication
+✓ Connected successfully
+
+Test 3: Testing from within K3s cluster...
+✓ MongoDB is accessible from within K3s cluster
+```
+
+---
+
+### 4. Cek Service Connectivity
+
+#### Catatan Penting: Open5GS Menggunakan HTTP/2
+Open5GS SBI (Service Based Interface) hanya mendukung **HTTP/2** secara langsung. Saat melakukan testing dengan `curl`, **harus** menggunakan flag `--http2-prior-knowledge`. 
+
+**Perintah yang salah:**
+```bash
+# ✗ Akan gagal dengan exit code 52 (Empty reply from server)
+curl http://nrf:7777/nnrf-nfm/v1/nf-instances
+curl --http2 http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+**Perintah yang benar:**
+```bash
+# ✓ Menggunakan HTTP/2 langsung
+curl --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+#### Test NF Connectivity
+Verifikasi konektivitas antar NF menggunakan NRF API:
+```bash
+# Test dari AMF pod ke NRF
+kubectl exec -it -n open5gs amf-0 -- /bin/bash
+
+# Di dalam pod:
+curl --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+Atau test langsung dari NRF pod:
+```bash
+# Test NRF API dari dalam NRF pod
+kubectl exec -n open5gs nrf-0 -- \
+    curl -s --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+Output yang diharapkan berupa JSON response dengan daftar NF yang terdaftar:
+```json
+{
+  "_links": {
+    "item": [
+      {"href": "http://10.10.0.10:7777/nnrf-nfm/v1/nf-instances/..."},
+    ],
+    "totalItemCount": 9
+  }
+}
+```
+
+---
+
+## 📋 Tugas 1: Konektivitas Dasar
+
+### Objective
+
+Verify bahwa Open5GS deployment berfungsi dengan benar dan dapat connect dengan UERANSIM.
+
+### Prerequisites
+- K3s deployment selesai
+- Semua pods running
+- UERANSIM binary tersedia
+
+### Langkah-Langkah
+
+#### 1.1 Persiapkan UERANSIM pada Host Eksternal
+
+Navigasi ke direktori UERANSIM:
+```bash
+# Di mesin yang berbeda dari K3s (atau terminal baru dengan user biasa)
+cd ~/Open5GS-Testbed/ueransim
+```
+
+**Modifikasi gNB Config:**
+
+1. Dapatkan IP address host dan AMF pod:
+```bash
+# Cek IP address host
+ip addr
+
+# Cek IP address AMF pod
+kubectl get pod amf-0 -n open5gs -o wide
+```
+
+2. Edit file `ueransim/configs/open5gs-gnb-k3s.yaml` dengan perubahan berikut:
+
+**a. Ubah semua gNB interfaces menggunakan IP host:**
+
+```yaml
+linkIp: 192.168.14.137       # Host IP
+ngapIp: 192.168.14.137       # Host IP
+gtpIp: 192.168.14.137        # Host IP
+gtpAdvertiseIp: 192.168.14.137  # Host IP
+```
+
+**b. Ubah AMF address ke IP AMF pod:**
+
+```yaml
+amfConfigs:
+  - address: 10.10.0.5       # AMF POD IP (dari K3s)
+    port: 38412
+```
+
+**Catatan:** gNB harus binding ke interface host karena berjalan langsung di host (bukan di dalam K3s cluster). Jika menggunakan pod IP, gNB akan gagal binding dengan error "Cannot assign requested address".
+
+---
+
+#### 1.2 Start gNB Simulator
+
+Jalankan gNB simulator:
+```bash
+# Terminal 1 - gNB
+cd ~/Open5GS-Testbed/ueransim
+./build/nr-gnb -c configs/open5gs-gnb-k3s.yaml
+```
+
+Output yang diharapkan akan menunjukkan gNB initialized dan ready untuk menerima UE.
+
+---
+
+#### 1.3 Start UE Simulator
+
+**Modifikasi UE Config:**
+
+1. Dapatkan IP address host (jika belum):
+```bash
+# Cek IP address host
+ip addr
+```
+
+2. Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
+
+**Ubah gnbSearchList menggunakan IP host:**
+
+```yaml
+gnbSearchList:
+  - 192.168.14.137           # Host IP (di mana gNB binding)
+```
+
+**Catatan:** UE perlu mencari gNB menggunakan IP host karena gNB binding ke interface host. Jika menggunakan localhost atau IP lain, UE akan gagal menemukan cell ("no cell in coverage").
+
+3. Jalankan UE simulator:
+```bash
+# Terminal 2 - UE
+cd ~/Open5GS-Testbed/ueransim
+sudo ./build/nr-ue -c configs/open5gs-ue-embb.yaml
+```
+
+Output yang diharapkan menunjukkan UE berhasil registrasi dan PDU session established.
+
+---
+
+#### 1.4 Test Basic Connectivity
+
+Buka terminal baru untuk melakukan testing:
+```bash
+# Terminal 3 - Testing
+
+# Test UE TUN interface
+ip addr show uesimtun0
+```
+
+```bash
+# Test gateway connectivity (UE -> UPF)
+ping -I uesimtun0 -c 4 10.45.0.1
+```
+
+```bash
+# Test internet connectivity
+ping -I uesimtun0 -c 4 8.8.8.8
+```
+
+```bash
+# Test DNS resolution
+nslookup google.com 8.8.8.8
+```
+
+```bash
+# Test HTTP/HTTPS
+curl --interface uesimtun0 -I https://www.google.com
+```
+
+---
+
+#### 1.5 Dokumentasi Hasil
+
+## Tugas 1: Konektivitas Dasar - Hasil Testing eMBB
+
+**Tanggal**: 29 November 2025
+**Nama**: Moh. Zukhruf Artha Hafidz
+**Status K3s**: ✓ WORKING
+
+### gNB Registration
+- Status: ✓ SUCCESS
+- Time taken: 17ms
+- AMF Connection: ✓ ESTABLISHED (10.10.0.5:38412)
+
+### UE Registration
+- Status: ✓ SUCCESS
+- Time taken: 751ms
+- IMSI: imsi-001011000000001
+- TUN Interface: ✓ uesimtun0
+- IP Address: ✓ 10.45.0.2
+
+### Connectivity Tests
+| Test | Result | RTT (ms) |
+|------|--------|----------|
+| UPF Gateway (10.45.0.1) | ✓ PASS | 2.43 |
+| Internet (8.8.8.8) | ✓ PASS | 45.05 |
+| DNS Resolution | ✓ PASS | 3 |
+| HTTP/HTTPS | ✓ PASS | 51.84 |
+
+---
+
+## Issues Encountered & Resolution
+
+### Issue 1: SCP Cannot Ping NRF
+**Problem:** SCP pod tidak memiliki utilitas `ping` yang diperlukan untuk testing konektivitas jaringan antar NF.
+
+**Error Message:**
+```
+/bin/sh: ping: not found
+```
+
+**Root Cause:** Image SCP tidak memiliki `iputils-ping` package terinstall.
+
+**Resolution:**
+Tambahkan `iputils-ping` ke dalam Dockerfile SCP:
+```dockerfile
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        open5gs-scp \
+        iputils-ping \
+        curl && \
+    apt-get clean
+```
+Rebuild dan reimport image.
+
+---
+
+### Issue 2: MongoDB Connection from K3s Cluster Fails
+**Problem:** Pod Open5GS di dalam K3s cluster tidak dapat terhubung ke MongoDB yang berjalan di host.
+
+**Error Message:**
+```
+MongoDB connection failed: Connection refused
+```
+
+**Root Cause:** MongoDB default binding hanya ke `127.0.0.1` (localhost), sehingga tidak dapat diakses dari pod K3s.
+
+**Resolution:**
+Edit konfigurasi MongoDB untuk binding ke semua interface:
+```bash
+sudo nano /etc/mongod.conf
+```
+Ubah `bindIp`:
+```yaml
+net:
+  port: 27017
+  bindIp: 0.0.0.0  # Ubah dari 127.0.0.1
+```
+Restart MongoDB:
+```bash
+sudo systemctl restart mongod
+```
+
+---
+
+### Issue 3: UERANSIM gNB Binary Failed to Start
+**Problem:** Binary UERANSIM gNB gagal start karena missing SCTP library dependency.
+
+**Error Message:**
+```
+error while loading shared libraries: libsctp.so.1: cannot open shared object file
+```
+
+**Root Cause:** Library SCTP belum terinstall di host system.
+
+**Resolution:**
+Install library SCTP yang diperlukan UERANSIM:
+```bash
+sudo apt-get update && sudo apt-get install -y libsctp1 lksctp-tools
+```
+Verifikasi instalasi:
+```bash
+ldconfig -p | grep sctp
+```
+
+---
+
+### Issue 4: gNB Failing to Bind to Interfaces
+**Problem:** gNB simulator gagal binding ke interfaces yang dikonfigurasi (`linkIp`, `ngapIp`, `gtpIp`, `gtpAdvertiseIp`).
+
+**Error Message:**
+```
+[ERROR] Cannot assign requested address
+```
+
+**Root Cause:** gNB config menggunakan IP address pod K3s, padahal gNB berjalan langsung di host (bukan di dalam cluster). Interface binding harus menggunakan IP address host.
+
+**Resolution:**
+Configure gNB to Use Host IP Address:
+Edit file `ueransim/configs/open5gs-gnb-k3s.yaml`:
+```yaml
+linkIp: 192.168.14.137    # Ganti dengan IP host Anda
+ngapIp: 192.168.14.137    # Ganti dengan IP host Anda  
+gtpIp: 192.168.14.137     # Ganti dengan IP host Anda
+gtpAdvertiseIp: 192.168.14.137  # Ganti dengan IP host Anda
+
+amfConfigs:
+  - address: 10.10.0.5    # IP address AMF pod di K3s
+    port: 38412
+```
+
+---
+
+### Issue 5: UE Cannot Find Any Cells in Coverage
+**Problem:** UE simulator gagal menemukan cell dari gNB.
+
+**Error Message:**
+```
+[rrc] [error] Cell search failed, no cell in coverage
+```
+
+**Root Cause:** UE config `gnbSearchList` tidak sesuai dengan IP address dimana gNB sebenarnya binding (host IP).
+
+**Resolution:**
+Configure UE gnbSearchList to Use Host IP:
+Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
+```yaml
+gnbSearchList:
+  - 192.168.14.137    # Ganti dengan IP host Anda (sama dengan gNB binding)
+```
+
+---
+
+### Issue 6: curl Error 52 When Testing NRF API
+**Problem:** Saat testing NRF API dengan curl standard, mendapat error "Empty reply from server".
+
+**Error Message:**
+```
+command terminated with exit code 52
+```
+
+**Root Cause:** Open5GS SBI menggunakan HTTP/2 secara eksklusif. Curl standard mengirim HTTP/1.1 yang ditolak oleh NRF.
+
+**Resolution:**
+Use Correct HTTP/2 Flag for curl:
+```bash
+# Correct command
+curl --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
+
+# Wrong commands (will fail with exit code 52)
+curl http://nrf:7777/nnrf-nfm/v1/nf-instances
+curl --http2 http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+---
+
+### Issue 7: MongoDB Verification Timeout
+**Problem:** Script `verify-mongodb.sh` timeout saat menjalankan test dari dalam K3s cluster.
+
+**Root Cause:** Image `mongo:5.0` (275MB) belum ter-cache di K3s containerd, menyebabkan timeout saat pulling image.
+
+**Resolution:**
+Pre-cache MongoDB Image Before Verification:
+```bash
+# Pull image ke K3s containerd
+sudo ctr -n k8s.io images pull docker.io/library/mongo:5.0
+
+# Verifikasi image tersedia
+sudo crictl images | grep mongo
+
+# Sekarang jalankan script verifikasi
+sudo ./verify-mongodb.sh
+```

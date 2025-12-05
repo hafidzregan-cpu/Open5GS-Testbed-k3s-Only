@@ -556,16 +556,16 @@ verify_installation() {
     fi
     
     print_info "Checking system pods..."
-    local pods_ready=$(k3s kubectl get pods -n kube-system 2>/dev/null | grep -c "Running" || echo 0)
-    if [ "$pods_ready" -gt 0 ]; then
+    local pods_ready=$(k3s kubectl get pods -n kube-system 2>/dev/null | grep "Running" | wc -l)
+    if [ -n "$pods_ready" ] && [ "$pods_ready" -gt 0 ]; then
         print_success "✓ $pods_ready system pod(s) running"
     else
         print_warn "✗ System pods not ready yet (may need more time)"
     fi
     
     print_info "Checking Calico CNI..."
-    local calico_nodes=$(k3s kubectl get pods -n kube-system -l k8s-app=calico-node 2>/dev/null | grep -c "Running" || echo 0)
-    if [ "$calico_nodes" -gt 0 ]; then
+    local calico_nodes=$(k3s kubectl get pods -n kube-system -l k8s-app=calico-node 2>/dev/null | grep "Running" | wc -l)
+    if [ -n "$calico_nodes" ] && [ "$calico_nodes" -gt 0 ]; then
         print_success "✓ Calico CNI is running ($calico_nodes node(s))"
     else
         print_warn "✗ Calico CNI not ready yet (may need more time)"

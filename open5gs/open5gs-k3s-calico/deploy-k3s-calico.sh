@@ -168,12 +168,25 @@ deploy_pod() {
     local name=$1
     local file=$2
     local label=$3
-    
+
     POD_DEPLOY_START[$name]=$(get_timestamp_ms)
     print_info "Deploying $name..."
-    
+
     kubectl apply -f "$file" &>/dev/null
-    
+
+    # Wait for pod to exist first (avoid race condition in parallel deployments)
+    local retries=0
+    until kubectl get pod -l "$label" -n open5gs &>/dev/null; do
+        sleep 0.5
+        retries=$((retries + 1))
+        if [ $retries -gt 20 ]; then
+            POD_DEPLOY_END[$name]=$(get_timestamp_ms)
+            POD_READY_TIME[$name]=$(calc_duration ${POD_DEPLOY_START[$name]} ${POD_DEPLOY_END[$name]})
+            print_error "$name pod failed to be created after ${POD_READY_TIME[$name]}ms"
+            return 1
+        fi
+    done
+
     # Wait for pod to be ready (increased timeout for image pull)
     if kubectl wait --for=condition=ready pod -l "$label" -n open5gs --timeout=180s &>/dev/null; then
         POD_DEPLOY_END[$name]=$(get_timestamp_ms)
