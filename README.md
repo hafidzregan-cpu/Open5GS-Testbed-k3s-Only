@@ -1,4 +1,4 @@
-# Open5GS-Testbed
+<img width="994" height="232" alt="Cuplikan layar dari 2025-11-29 14-42-24" src="https://github.com/user-attachments/assets/2ee92cb0-f2ee-4950-ae63-8c1834268df9" /># Open5GS-Testbed
 
 Testbed 5G Core Network yang komprehensif mengintegrasikan **Open5GS** dan **UERANSIM** untuk penelitian, testing, dan keperluan edukasi. Testbed ini mendukung multiple network slices dan menyediakan opsi deployment yang fleksibel sesuai dengan skenario testing yang berbeda.
 
@@ -336,6 +336,8 @@ kubectl logs -n open5gs smf-0
 kubectl logs -n open5gs upf-0
 ```
 
+---
+<img width="994" height="232" alt="Cuplikan layar dari 2025-11-29 14-42-24" src="https://github.com/user-attachments/assets/c1c5da5d-7ff3-467b-b356-f303243d334c" />
 ---
 
 ### 2. Verifikasi Static IP Assignment
