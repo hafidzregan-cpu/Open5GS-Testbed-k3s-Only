@@ -643,7 +643,7 @@ curl --interface uesimtun0 -I https://www.google.com
 
 ---
 
-## Issues Encountered & Resolution
+## Issues Encountered
 
 ### Issue 1: SCP Cannot Ping NRF
 **Problem:** SCP pod tidak memiliki utilitas `ping` yang diperlukan untuk testing konektivitas jaringan antar NF.
@@ -652,23 +652,10 @@ curl --interface uesimtun0 -I https://www.google.com
 ```
 /bin/sh: ping: not found
 ```
-
 **Root Cause:** Image SCP tidak memiliki `iputils-ping` package terinstall.
-
-**Resolution:**
 Tambahkan `iputils-ping` ke dalam Dockerfile SCP:
-```dockerfile
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        open5gs-scp \
-        iputils-ping \
-        curl && \
-    apt-get clean
-```
-Rebuild dan reimport image.
 
 ---
-
 ### Issue 2: MongoDB Connection from K3s Cluster Fails
 **Problem:** Pod Open5GS di dalam K3s cluster tidak dapat terhubung ke MongoDB yang berjalan di host.
 
@@ -679,6 +666,99 @@ MongoDB connection failed: Connection refused
 
 **Root Cause:** MongoDB default binding hanya ke `127.0.0.1` (localhost), sehingga tidak dapat diakses dari pod K3s.
 
+---
+### Issue 3: UERANSIM gNB Binary Failed to Start
+**Problem:** Binary UERANSIM gNB gagal start karena missing SCTP library dependency.
+
+**Error Message:**
+```
+error while loading shared libraries: libsctp.so.1: cannot open shared object file
+```
+
+**Root Cause:** Library SCTP belum terinstall di host system.
+
+---
+### Issue 4: gNB Failing to Bind to Interfaces
+**Problem:** gNB simulator gagal binding ke interfaces yang dikonfigurasi (`linkIp`, `ngapIp`, `gtpIp`, `gtpAdvertiseIp`).
+
+**Error Message:**
+```
+[ERROR] Cannot assign requested address
+```
+
+**Root Cause:** gNB config menggunakan IP address pod K3s, padahal gNB berjalan langsung di host (bukan di dalam cluster). Interface binding harus menggunakan IP address host.
+
+---
+### Issue 5: UE Cannot Find Any Cells in Coverage
+**Problem:** UE simulator gagal menemukan cell dari gNB.
+
+**Error Message:**
+```
+[rrc] [error] Cell search failed, no cell in coverage
+```
+
+**Root Cause:** UE config `gnbSearchList` tidak sesuai dengan IP address dimana gNB sebenarnya binding (host IP).
+
+### Issue 6: curl Error 52 When Testing NRF API
+**Problem:** Saat testing NRF API dengan curl standard, mendapat error "Empty reply from server".
+
+**Error Message:**
+```
+command terminated with exit code 52
+```
+---
+**Root Cause:** Open5GS SBI menggunakan HTTP/2 secara eksklusif. Curl standard mengirim HTTP/1.1 yang ditolak oleh NRF.
+
+### Issue 7: MongoDB Verification Timeout
+**Problem:** Script `verify-mongodb.sh` timeout saat menjalankan test dari dalam K3s cluster.
+
+**Root Cause:** Image `mongo:5.0` (275MB) belum ter-cache di K3s containerd, menyebabkan timeout saat pulling image.
+
+---
+### Issue 8: UERANSIM Binary Incompability
+**Problem:** Kondisi: Binary UERANSIM tidak bisa dijalankan dengan error `./build/nr-gnb: version 'GLIBC_2.38' not found`
+
+**Root Cause:** 
+- Binary UERANSIM pre-compiled yang disediakan dibuat pada Ubuntu 24.04 dengan glibc 2.38
+- Sistem yang digunakan adalah Ubuntu 22.04 dengan glibc 2.35
+- Terjadi incompatibility pada library level
+
+---
+### Issue 9: Calico Pod Initialization Failure
+**Problem:** Kondisi: Pod Calico kube-controllers mengalami CrashLoopBackOff, calico-node stuck pada status Init:2/3
+
+**Root Cause:** 
+- Terjadi masalah bootstrap pada Calico (chicken-and-egg problem)
+- Calico memerlukan akses ke Kubernetes API server (10.43.0.1) sebelum networking siap
+- Ini menyebabkan deadlock pada saat initialization
+
+---
+### Issue 10: UE Registration Failure [FIVEG_SERVICES_NOT_ALLOWED]
+**Problem** Kondisi: Registrasi UE gagal dengan kode error 7, logs menunjukkan "Cannot find SUCI [404]"
+
+**Root Cause:**
+- Schema dokumen subscriber di MongoDB tidak sesuai dengan format yang diharapkan Open5GS
+- Field `security` tidak tersarang dengan benar di dalam `subscriptionData`
+- AMF tidak bisa menemukan data subscriber dan menolak registrasi UE
+
+## Resolution
+### 1. Install Ping Utility in SCP Container
+
+```dockerfile
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        open5gs-scp \
+        iputils-ping \
+        curl && \
+    apt-get clean
+```
+Rebuild dan reimport image.
+```bash
+cd ~/Open5GS-Testbed/open5gs/open5gs-k3s-calico
+sudo ./build-import-containers.sh
+```
+---
+### 2. Configure MongoDB to Accept External Connections
 **Resolution:**
 Edit konfigurasi MongoDB untuk binding ke semua interface:
 ```bash
@@ -697,16 +777,7 @@ sudo systemctl restart mongod
 
 ---
 
-### Issue 3: UERANSIM gNB Binary Failed to Start
-**Problem:** Binary UERANSIM gNB gagal start karena missing SCTP library dependency.
-
-**Error Message:**
-```
-error while loading shared libraries: libsctp.so.1: cannot open shared object file
-```
-
-**Root Cause:** Library SCTP belum terinstall di host system.
-
+### 3. Install SCTP Library on Host
 **Resolution:**
 Install library SCTP yang diperlukan UERANSIM:
 ```bash
@@ -719,16 +790,7 @@ ldconfig -p | grep sctp
 
 ---
 
-### Issue 4: gNB Failing to Bind to Interfaces
-**Problem:** gNB simulator gagal binding ke interfaces yang dikonfigurasi (`linkIp`, `ngapIp`, `gtpIp`, `gtpAdvertiseIp`).
-
-**Error Message:**
-```
-[ERROR] Cannot assign requested address
-```
-
-**Root Cause:** gNB config menggunakan IP address pod K3s, padahal gNB berjalan langsung di host (bukan di dalam cluster). Interface binding harus menggunakan IP address host.
-
+### 4. Configure gNB to Use Host IP Address
 **Resolution:**
 Configure gNB to Use Host IP Address:
 Edit file `ueransim/configs/open5gs-gnb-k3s.yaml`:
@@ -745,16 +807,7 @@ amfConfigs:
 
 ---
 
-### Issue 5: UE Cannot Find Any Cells in Coverage
-**Problem:** UE simulator gagal menemukan cell dari gNB.
-
-**Error Message:**
-```
-[rrc] [error] Cell search failed, no cell in coverage
-```
-
-**Root Cause:** UE config `gnbSearchList` tidak sesuai dengan IP address dimana gNB sebenarnya binding (host IP).
-
+### 5. Configure UE gnbSearchList to Use Host IP
 **Resolution:**
 Configure UE gnbSearchList to Use Host IP:
 Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
@@ -765,16 +818,7 @@ gnbSearchList:
 
 ---
 
-### Issue 6: curl Error 52 When Testing NRF API
-**Problem:** Saat testing NRF API dengan curl standard, mendapat error "Empty reply from server".
-
-**Error Message:**
-```
-command terminated with exit code 52
-```
-
-**Root Cause:** Open5GS SBI menggunakan HTTP/2 secara eksklusif. Curl standard mengirim HTTP/1.1 yang ditolak oleh NRF.
-
+### 6. Use Correct HTTP/2 Flag for culr
 **Resolution:**
 Use Correct HTTP/2 Flag for curl:
 ```bash
@@ -787,12 +831,7 @@ curl --http2 http://nrf:7777/nnrf-nfm/v1/nf-instances
 ```
 
 ---
-
-### Issue 7: MongoDB Verification Timeout
-**Problem:** Script `verify-mongodb.sh` timeout saat menjalankan test dari dalam K3s cluster.
-
-**Root Cause:** Image `mongo:5.0` (275MB) belum ter-cache di K3s containerd, menyebabkan timeout saat pulling image.
-
+### 7. Pre-cache MongoDB Image Before Verification
 **Resolution:**
 Pre-cache MongoDB Image Before Verification:
 ```bash
@@ -805,3 +844,74 @@ sudo crictl images | grep mongo
 # Sekarang jalankan script verifikasi
 sudo ./verify-mongodb.sh
 ```
+---
+### 8. Install compability version for ubuntu 22.04
+**Resolution:**
+1. Install tools untuk compile dari source:
+   ```bash
+   sudo apt-get install -y build-essential cmake libsctp-dev
+   ```
+2. Rebuild UERANSIM dari source code:
+   ```bash
+   cd ~/Open5GS-Testbed/ueransim
+   make build
+   ```
+3. Verifikasi binary baru kompatibel dengan sistem:
+   ```bash
+   ./build/nr-gnb --help
+   ./build/nr-ue --help
+   ```
+
+---
+### 9. Restart service K3s for re-initialization
+**Resolution:**
+1. Restart service K3s untuk melakukan re-initialization:
+   ```bash
+   sudo systemctl restart k3s
+   ```
+2. Tunggu proses initialization Calico pods selesai dengan proper sequence
+3. Verifikasi pod Calico sudah mencapai status Running
+
+---
+### 10. Add Right Schema Subscriber in MongoDB
+**Resolution:**
+1. Tambahkan subscriber ke MongoDB dengan schema yang benar:
+   ```bash
+   mongosh "mongodb://10.201.67.251:27017/open5gs" << 'EOF'
+   db.subscribers.insertOne({
+     "_id": "001011000000001",
+     "imsi": "001011000000001",
+     "subscriptionData": {
+       "security": {
+         "authenticationSubscriptions": [{
+           "sequenceNumber": "000000000061",
+           "authenticationMethod": "5G_AKA",
+           "permanentKey": "0C0A34601D4F07677303652C0624006F",
+           "operatorDeterminedBarring": 0,
+           "opc": "FAB0F1D1A00002D31649A5AEB245B89D"
+         }]
+       },
+       "accessAndMobilitySubscriptionData": {
+         "offeredSBIFqdn": "nrmm.5g.mnc01.mcc001.3gppnetwork.org"
+       },
+       "sessionManagementSubscriptionData": [{
+         "singleNssai": {"sst": 1, "sd": "000001"},
+         "dnnConfigurations": {
+           "embb.testbed": {"sscModes": {"defaultSscMode": "SSC_MODE_1"}}
+         }
+       }],
+       "smfSelectionSubscriptionData": {},
+       "securitySubscriptionData": {}
+     }
+   })
+   EOF
+   ```
+
+2. Pastikan field `_id` disesuaikan dengan IMSI sebagai string value
+
+3. Restart pods authentication (AUSF, UDM, UDR) untuk membersihkan cache data lama:
+   ```bash
+   kubectl delete pod -n open5gs ausf-0 udm-0 udr-0
+   ```
+
+
