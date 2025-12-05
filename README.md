@@ -1,4 +1,4 @@
-<img width="994" height="232" alt="Cuplikan layar dari 2025-11-29 14-42-24" src="https://github.com/user-attachments/assets/2ee92cb0-f2ee-4950-ae63-8c1834268df9" /># Open5GS-Testbed
+# Open5GS-Testbed
 
 Testbed 5G Core Network yang komprehensif mengintegrasikan **Open5GS** dan **UERANSIM** untuk penelitian, testing, dan keperluan edukasi. Testbed ini mendukung multiple network slices dan menyediakan opsi deployment yang fleksibel sesuai dengan skenario testing yang berbeda.
 
@@ -336,8 +336,7 @@ kubectl logs -n open5gs smf-0
 kubectl logs -n open5gs upf-0
 ```
 
----
-<img width="994" height="232" alt="Cuplikan layar dari 2025-11-29 14-42-24" src="https://github.com/user-attachments/assets/c1c5da5d-7ff3-467b-b356-f303243d334c" />
+<img width="994" height="232" alt="Cuplikan layar dari 2025-11-29 14-42-24" src="https://github.com/user-attachments/assets/2ee92cb0-f2ee-4950-ae63-8c1834268df9" />
 ---
 
 ### 2. Verifikasi Static IP Assignment
@@ -356,6 +355,9 @@ Output yang diharapkan:
 ✓ upf-0: 10.10.0.7
 ... (semua NF dengan IP yang sesuai)
 ```
+<img width="894" height="482" alt="Cuplikan layar dari 2025-11-29 14-43-05" src="https://github.com/user-attachments/assets/cf8e75f9-1a28-4c0b-ac98-77387ff083db" />
+<img width="1095" height="561" alt="Cuplikan layar dari 2025-11-29 14-43-21" src="https://github.com/user-attachments/assets/cdd20e64-3f15-414c-886a-c285c2e42f74" />
+
 
 ---
 
@@ -396,6 +398,10 @@ Test 2: MongoDB authentication
 Test 3: Testing from within K3s cluster...
 ✓ MongoDB is accessible from within K3s cluster
 ```
+
+<img width="676" height="404" alt="Cuplikan layar dari 2025-11-29 14-55-19" src="https://github.com/user-attachments/assets/f33064c1-a95a-4536-9567-f3c2677f10f8" />
+<img width="626" height="443" alt="Cuplikan layar dari 2025-11-29 14-55-32" src="https://github.com/user-attachments/assets/1769f667-e1cc-4679-ad7c-0f7c3ac921f4" />
+
 
 ---
 
@@ -445,6 +451,8 @@ Output yang diharapkan berupa JSON response dengan daftar NF yang terdaftar:
   }
 }
 ```
+<img width="1290" height="276" alt="Cuplikan layar dari 2025-11-29 15-00-58" src="https://github.com/user-attachments/assets/96046018-d641-4544-a4b1-2a66197979df" />
+
 
 ---
 
@@ -479,6 +487,10 @@ ip addr
 # Cek IP address AMF pod
 kubectl get pod amf-0 -n open5gs -o wide
 ```
+<img width="1074" height="658" alt="Cuplikan layar dari 2025-11-29 15-02-34" src="https://github.com/user-attachments/assets/efd73277-fc8c-421f-bc9c-cabacaf4a8b7" />
+<img width="1126" height="67" alt="Cuplikan layar dari 2025-11-29 15-02-59" src="https://github.com/user-attachments/assets/1af7a985-8efe-4491-b5a6-7d2e039d49e3" />
+
+
 
 2. Edit file `ueransim/configs/open5gs-gnb-k3s.yaml` dengan perubahan berikut:
 
@@ -490,6 +502,8 @@ ngapIp: 192.168.14.137       # Host IP
 gtpIp: 192.168.14.137        # Host IP
 gtpAdvertiseIp: 192.168.14.137  # Host IP
 ```
+<img width="982" height="79" alt="Cuplikan layar dari 2025-12-05 10-10-16" src="https://github.com/user-attachments/assets/685e4c52-2945-4cea-a554-167387dffc39" />
+
 
 **b. Ubah AMF address ke IP AMF pod:**
 
@@ -498,6 +512,8 @@ amfConfigs:
   - address: 10.10.0.5       # AMF POD IP (dari K3s)
     port: 38412
 ```
+<img width="971" height="138" alt="Cuplikan layar dari 2025-12-05 10-10-32" src="https://github.com/user-attachments/assets/bd539118-d2b1-4d69-8daa-7c982e1c2cee" />
+
 
 **Catatan:** gNB harus binding ke interface host karena berjalan langsung di host (bukan di dalam K3s cluster). Jika menggunakan pod IP, gNB akan gagal binding dengan error "Cannot assign requested address".
 
@@ -514,6 +530,9 @@ cd ~/Open5GS-Testbed/ueransim
 
 Output yang diharapkan akan menunjukkan gNB initialized dan ready untuk menerima UE.
 
+
+<img width="527" height="632" alt="Cuplikan layar dari 2025-11-29 16-05-53" src="https://github.com/user-attachments/assets/8d6da939-02ac-4a2c-b131-b2b35f00af73" />
+
 ---
 
 #### 1.3 Start UE Simulator
@@ -525,6 +544,8 @@ Output yang diharapkan akan menunjukkan gNB initialized dan ready untuk menerima
 # Cek IP address host
 ip addr
 ```
+<img width="1074" height="658" alt="Cuplikan layar dari 2025-11-29 15-02-34" src="https://github.com/user-attachments/assets/52f3c01b-64e3-4bab-b650-4ea84a677335" />
+
 
 2. Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
 
@@ -532,8 +553,10 @@ ip addr
 
 ```yaml
 gnbSearchList:
-  - 192.168.14.137           # Host IP (di mana gNB binding)
+  - 192.168.14.137           # Host IP anda (di mana gNB binding)
 ```
+<img width="519" height="71" alt="Cuplikan layar dari 2025-12-05 10-13-09" src="https://github.com/user-attachments/assets/ff7c494b-3ebc-460e-bce6-cc22e510c960" />
+
 
 **Catatan:** UE perlu mencari gNB menggunakan IP host karena gNB binding ke interface host. Jika menggunakan localhost atau IP lain, UE akan gagal menemukan cell ("no cell in coverage").
 
@@ -545,6 +568,7 @@ sudo ./build/nr-ue -c configs/open5gs-ue-embb.yaml
 ```
 
 Output yang diharapkan menunjukkan UE berhasil registrasi dan PDU session established.
+<img width="889" height="641" alt="Cuplikan layar dari 2025-11-29 15-54-15" src="https://github.com/user-attachments/assets/227da8ca-3bd7-4bd3-b7b8-d82c28de2314" />
 
 ---
 
@@ -557,26 +581,35 @@ Buka terminal baru untuk melakukan testing:
 # Test UE TUN interface
 ip addr show uesimtun0
 ```
+<img width="889" height="211" alt="Cuplikan layar dari 2025-11-29 15-55-25" src="https://github.com/user-attachments/assets/dffd3a46-bd19-4788-b250-4c106142f868" />
+
 
 ```bash
 # Test gateway connectivity (UE -> UPF)
 ping -I uesimtun0 -c 4 10.45.0.1
 ```
+<img width="662" height="209" alt="Cuplikan layar dari 2025-11-29 15-55-50" src="https://github.com/user-attachments/assets/11a4ca95-a6a9-437e-b0e3-c4e420f7e5fe" />
+
 
 ```bash
 # Test internet connectivity
 ping -I uesimtun0 -c 4 8.8.8.8
 ```
+![Uploading Cuplikan layar dari 2025-11-29 15-56-20.png…]()
+
 
 ```bash
 # Test DNS resolution
 nslookup google.com 8.8.8.8
 ```
+<img width="648" height="436" alt="Cuplikan layar dari 2025-11-29 15-56-47" src="https://github.com/user-attachments/assets/8b728c42-0375-4420-90f2-93ed633fb802" />
+
 
 ```bash
 # Test HTTP/HTTPS
 curl --interface uesimtun0 -I https://www.google.com
 ```
+<img width="884" height="355" alt="Cuplikan layar dari 2025-11-29 15-57-15" src="https://github.com/user-attachments/assets/55e95544-cd1c-4a21-8192-902de791ae4d" />
 
 ---
 
