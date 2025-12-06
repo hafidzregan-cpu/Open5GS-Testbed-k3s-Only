@@ -645,7 +645,43 @@ curl --interface uesimtun0 -I https://www.google.com
 
 ## Issues Encountered
 
-### Issue 1: SCP Cannot Ping NRF
+### Issue 1: Calico Pod Initialization Failure
+**Problem:** Pod Calico kube-controllers mengalami CrashLoopBackOff, calico-node stuck pada status Init:2/3
+
+**Akar Masalah:** 
+- Terjadi masalah bootstrap pada Calico (chicken-and-egg problem)
+- Calico memerlukan akses ke Kubernetes API server (10.43.0.1) sebelum networking siap
+- Ini menyebabkan deadlock pada saat initialization
+
+---
+### Issue 2: UERANSIM Binary Incompability
+**Problem:** Binary UERANSIM tidak bisa dijalankan dengan error `./build/nr-gnb: version 'GLIBC_2.38' not found`
+
+**Akar Masalah:** 
+- Binary UERANSIM pre-compiled yang disediakan dibuat pada Ubuntu 24.04 dengan glibc 2.38
+- Sistem yang digunakan adalah Ubuntu 22.04 dengan glibc 2.35
+- Terjadi incompatibility pada library level
+
+---
+### Issue 3: UE Registration Failure [FIVEG_SERVICES_NOT_ALLOWED]
+**Problem** Registrasi UE gagal dengan kode error 7, logs menunjukkan "Cannot find SUCI [404]"
+
+**Akar Masalah:**
+- Schema dokumen subscriber di MongoDB tidak sesuai dengan format yang diharapkan Open5GS
+- Field `security` tidak tersarang dengan benar di dalam `subscriptionData`
+- AMF tidak bisa menemukan data subscriber dan menolak registrasi UE
+
+---
+### Issue 4: K3s Setup Script Shell Errors
+**Problem** Script K3s mengalami error pada logic perbandingan pod count di lines 560 dan 568
+
+**Akar Masalah:**
+- Logic perbandingan pod count di dalam script tidak bekerja sesuai yang diharapkan
+- Command `grep -c` tidak return nilai yang konsisten
+- Script gagal melakukan conditional check untuk pod readiness
+
+---
+### Issue 5: SCP Cannot Ping NRF
 **Problem:** SCP pod tidak memiliki utilitas `ping` yang diperlukan untuk testing konektivitas jaringan antar NF.
 
 **Error Message:**
@@ -656,7 +692,7 @@ curl --interface uesimtun0 -I https://www.google.com
 Tambahkan `iputils-ping` ke dalam Dockerfile SCP:
 
 ---
-### Issue 2: MongoDB Connection from K3s Cluster Fails
+### Issue 6: MongoDB Connection from K3s Cluster Fails
 **Problem:** Pod Open5GS di dalam K3s cluster tidak dapat terhubung ke MongoDB yang berjalan di host.
 
 **Error Message:**
@@ -667,7 +703,7 @@ MongoDB connection failed: Connection refused
 **Root Cause:** MongoDB default binding hanya ke `127.0.0.1` (localhost), sehingga tidak dapat diakses dari pod K3s.
 
 ---
-### Issue 3: UERANSIM gNB Binary Failed to Start
+### Issue 7: UERANSIM gNB Binary Failed to Start
 **Problem:** Binary UERANSIM gNB gagal start karena missing SCTP library dependency.
 
 **Error Message:**
@@ -678,7 +714,7 @@ error while loading shared libraries: libsctp.so.1: cannot open shared object fi
 **Root Cause:** Library SCTP belum terinstall di host system.
 
 ---
-### Issue 4: gNB Failing to Bind to Interfaces
+### Issue 8: gNB Failing to Bind to Interfaces
 **Problem:** gNB simulator gagal binding ke interfaces yang dikonfigurasi (`linkIp`, `ngapIp`, `gtpIp`, `gtpAdvertiseIp`).
 
 **Error Message:**
@@ -689,7 +725,7 @@ error while loading shared libraries: libsctp.so.1: cannot open shared object fi
 **Root Cause:** gNB config menggunakan IP address pod K3s, padahal gNB berjalan langsung di host (bukan di dalam cluster). Interface binding harus menggunakan IP address host.
 
 ---
-### Issue 5: UE Cannot Find Any Cells in Coverage
+### Issue 9: UE Cannot Find Any Cells in Coverage
 **Problem:** UE simulator gagal menemukan cell dari gNB.
 
 **Error Message:**
@@ -699,7 +735,7 @@ error while loading shared libraries: libsctp.so.1: cannot open shared object fi
 
 **Root Cause:** UE config `gnbSearchList` tidak sesuai dengan IP address dimana gNB sebenarnya binding (host IP).
 
-### Issue 6: curl Error 52 When Testing NRF API
+### Issue 10: curl Error 52 When Testing NRF API
 **Problem:** Saat testing NRF API dengan curl standard, mendapat error "Empty reply from server".
 
 **Error Message:**
@@ -709,143 +745,24 @@ command terminated with exit code 52
 ---
 **Root Cause:** Open5GS SBI menggunakan HTTP/2 secara eksklusif. Curl standard mengirim HTTP/1.1 yang ditolak oleh NRF.
 
-### Issue 7: MongoDB Verification Timeout
+### Issue 11: MongoDB Verification Timeout
 **Problem:** Script `verify-mongodb.sh` timeout saat menjalankan test dari dalam K3s cluster.
 
 **Root Cause:** Image `mongo:5.0` (275MB) belum ter-cache di K3s containerd, menyebabkan timeout saat pulling image.
 
 ---
-### Issue 8: UERANSIM Binary Incompability
-**Problem:** Kondisi: Binary UERANSIM tidak bisa dijalankan dengan error `./build/nr-gnb: version 'GLIBC_2.38' not found`
-
-**Root Cause:** 
-- Binary UERANSIM pre-compiled yang disediakan dibuat pada Ubuntu 24.04 dengan glibc 2.38
-- Sistem yang digunakan adalah Ubuntu 22.04 dengan glibc 2.35
-- Terjadi incompatibility pada library level
-
----
-### Issue 9: Calico Pod Initialization Failure
-**Problem:** Kondisi: Pod Calico kube-controllers mengalami CrashLoopBackOff, calico-node stuck pada status Init:2/3
-
-**Root Cause:** 
-- Terjadi masalah bootstrap pada Calico (chicken-and-egg problem)
-- Calico memerlukan akses ke Kubernetes API server (10.43.0.1) sebelum networking siap
-- Ini menyebabkan deadlock pada saat initialization
-
----
-### Issue 10: UE Registration Failure [FIVEG_SERVICES_NOT_ALLOWED]
-**Problem** Kondisi: Registrasi UE gagal dengan kode error 7, logs menunjukkan "Cannot find SUCI [404]"
-
-**Root Cause:**
-- Schema dokumen subscriber di MongoDB tidak sesuai dengan format yang diharapkan Open5GS
-- Field `security` tidak tersarang dengan benar di dalam `subscriptionData`
-- AMF tidak bisa menemukan data subscriber dan menolak registrasi UE
-
 ## Resolution
-### 1. Install Ping Utility in SCP Container
-
-```dockerfile
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        open5gs-scp \
-        iputils-ping \
-        curl && \
-    apt-get clean
-```
-Rebuild dan reimport image.
-```bash
-cd ~/Open5GS-Testbed/open5gs/open5gs-k3s-calico
-sudo ./build-import-containers.sh
-```
----
-### 2. Configure MongoDB to Accept External Connections
+### 1. Restart service K3s for re-initialization
 **Resolution:**
-Edit konfigurasi MongoDB untuk binding ke semua interface:
-```bash
-sudo nano /etc/mongod.conf
-```
-Ubah `bindIp`:
-```yaml
-net:
-  port: 27017
-  bindIp: 0.0.0.0  # Ubah dari 127.0.0.1
-```
-Restart MongoDB:
-```bash
-sudo systemctl restart mongod
-```
+1. Restart service K3s untuk melakukan re-initialization:
+   ```bash
+   sudo systemctl restart k3s
+   ```
+2. Tunggu proses initialization Calico pods selesai dengan proper sequence
+3. Verifikasi pod Calico sudah mencapai status Running
 
 ---
-
-### 3. Install SCTP Library on Host
-**Resolution:**
-Install library SCTP yang diperlukan UERANSIM:
-```bash
-sudo apt-get update && sudo apt-get install -y libsctp1 lksctp-tools
-```
-Verifikasi instalasi:
-```bash
-ldconfig -p | grep sctp
-```
-
----
-
-### 4. Configure gNB to Use Host IP Address
-**Resolution:**
-Configure gNB to Use Host IP Address:
-Edit file `ueransim/configs/open5gs-gnb-k3s.yaml`:
-```yaml
-linkIp: 192.168.14.137    # Ganti dengan IP host Anda
-ngapIp: 192.168.14.137    # Ganti dengan IP host Anda  
-gtpIp: 192.168.14.137     # Ganti dengan IP host Anda
-gtpAdvertiseIp: 192.168.14.137  # Ganti dengan IP host Anda
-
-amfConfigs:
-  - address: 10.10.0.5    # IP address AMF pod di K3s
-    port: 38412
-```
-
----
-
-### 5. Configure UE gnbSearchList to Use Host IP
-**Resolution:**
-Configure UE gnbSearchList to Use Host IP:
-Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
-```yaml
-gnbSearchList:
-  - 192.168.14.137    # Ganti dengan IP host Anda (sama dengan gNB binding)
-```
-
----
-
-### 6. Use Correct HTTP/2 Flag for culr
-**Resolution:**
-Use Correct HTTP/2 Flag for curl:
-```bash
-# Correct command
-curl --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
-
-# Wrong commands (will fail with exit code 52)
-curl http://nrf:7777/nnrf-nfm/v1/nf-instances
-curl --http2 http://nrf:7777/nnrf-nfm/v1/nf-instances
-```
-
----
-### 7. Pre-cache MongoDB Image Before Verification
-**Resolution:**
-Pre-cache MongoDB Image Before Verification:
-```bash
-# Pull image ke K3s containerd
-sudo ctr -n k8s.io images pull docker.io/library/mongo:5.0
-
-# Verifikasi image tersedia
-sudo crictl images | grep mongo
-
-# Sekarang jalankan script verifikasi
-sudo ./verify-mongodb.sh
-```
----
-### 8. Install compability version for ubuntu 22.04
+### 2. Install compability version for ubuntu 22.04
 **Resolution:**
 1. Install tools untuk compile dari source:
    ```bash
@@ -863,17 +780,7 @@ sudo ./verify-mongodb.sh
    ```
 
 ---
-### 9. Restart service K3s for re-initialization
-**Resolution:**
-1. Restart service K3s untuk melakukan re-initialization:
-   ```bash
-   sudo systemctl restart k3s
-   ```
-2. Tunggu proses initialization Calico pods selesai dengan proper sequence
-3. Verifikasi pod Calico sudah mencapai status Running
-
----
-### 10. Add Right Schema Subscriber in MongoDB
+### 3. Add Right Schema Subscriber in MongoDB
 **Resolution:**
 1. Tambahkan subscriber ke MongoDB dengan schema yang benar:
    ```bash
@@ -913,5 +820,119 @@ sudo ./verify-mongodb.sh
    ```bash
    kubectl delete pod -n open5gs ausf-0 udm-0 udr-0
    ```
+   
+---
+### 4. Edit Code in lines 560 & 568
+**Resolution:**
+1. Perbaiki logic conditional di file `setup-k3s-environment-calico.sh` pada lines 560 dan 568
+<img width="1145" height="299" alt="Cuplikan layar dari 2025-12-06 10-26-12" src="https://github.com/user-attachments/assets/ff0f3549-ed80-4be3-8742-fe88ec9f7ff3" />
 
+2. Test ulang script untuk memastikan tidak ada error
+
+
+---
+### 5. Install Ping Utility in SCP Container
+**Resolution:**
+```dockerfile
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        open5gs-scp \
+        iputils-ping \
+        curl && \
+    apt-get clean
+```
+Rebuild dan reimport image.
+```bash
+cd ~/Open5GS-Testbed/open5gs/open5gs-k3s-calico
+sudo ./build-import-containers.sh
+```
+---
+### 6. Configure MongoDB to Accept External Connections
+**Resolution:**
+Edit konfigurasi MongoDB untuk binding ke semua interface:
+```bash
+sudo nano /etc/mongod.conf
+```
+Ubah `bindIp`:
+```yaml
+net:
+  port: 27017
+  bindIp: 0.0.0.0  # Ubah dari 127.0.0.1
+```
+Restart MongoDB:
+```bash
+sudo systemctl restart mongod
+```
+
+---
+
+### 7. Install SCTP Library on Host
+**Resolution:**
+Install library SCTP yang diperlukan UERANSIM:
+```bash
+sudo apt-get update && sudo apt-get install -y libsctp1 lksctp-tools
+```
+Verifikasi instalasi:
+```bash
+ldconfig -p | grep sctp
+```
+
+---
+
+### 8. Configure gNB to Use Host IP Address
+**Resolution:**
+Configure gNB to Use Host IP Address:
+Edit file `ueransim/configs/open5gs-gnb-k3s.yaml`:
+```yaml
+linkIp: 192.168.14.137    # Ganti dengan IP host Anda
+ngapIp: 192.168.14.137    # Ganti dengan IP host Anda  
+gtpIp: 192.168.14.137     # Ganti dengan IP host Anda
+gtpAdvertiseIp: 192.168.14.137  # Ganti dengan IP host Anda
+
+amfConfigs:
+  - address: 10.10.0.5    # IP address AMF pod di K3s
+    port: 38412
+```
+
+---
+
+### 9. Configure UE gnbSearchList to Use Host IP
+**Resolution:**
+Configure UE gnbSearchList to Use Host IP:
+Edit file `ueransim/configs/open5gs-ue-embb.yaml`:
+```yaml
+gnbSearchList:
+  - 192.168.14.137    # Ganti dengan IP host Anda (sama dengan gNB binding)
+```
+
+---
+
+### 10. Use Correct HTTP/2 Flag for culr
+**Resolution:**
+Use Correct HTTP/2 Flag for curl:
+```bash
+# Correct command
+curl --http2-prior-knowledge http://nrf:7777/nnrf-nfm/v1/nf-instances
+
+# Wrong commands (will fail with exit code 52)
+curl http://nrf:7777/nnrf-nfm/v1/nf-instances
+curl --http2 http://nrf:7777/nnrf-nfm/v1/nf-instances
+```
+
+---
+### 11. Pre-cache MongoDB Image Before Verification
+**Resolution:**
+Pre-cache MongoDB Image Before Verification:
+```bash
+# Pull image ke K3s containerd
+sudo ctr -n k8s.io images pull docker.io/library/mongo:5.0
+
+# Verifikasi image tersedia
+sudo crictl images | grep mongo
+
+# Sekarang jalankan script verifikasi
+sudo ./verify-mongodb.sh
+```
+
+---
 
