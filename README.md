@@ -617,21 +617,21 @@ curl --interface uesimtun0 -I https://www.google.com
 
 ## Tugas 1: Konektivitas Dasar - Hasil Testing eMBB
 
-**Tanggal**: 29 November 2025
-**Nama**: Moh. Zukhruf Artha Hafidz
-**Status K3s**: ✓ WORKING
+**Tanggal**: [29 November 2025]
+**Nama**: [Moh. Zukhruf Artha Hafidz]
+**Status K3s**: [WORKING]
 
 ### gNB Registration
-- Status: ✓ SUCCESS
-- Time taken: 17ms
-- AMF Connection: ✓ ESTABLISHED (10.10.0.5:38412)
+- Status: [SUCCESS]
+- Time taken: [17ms]
+- AMF Connection: [ESTABLISHED]
 
 ### UE Registration
-- Status: ✓ SUCCESS
-- Time taken: 751ms
-- IMSI: imsi-001011000000001
-- TUN Interface: ✓ uesimtun0
-- IP Address: ✓ 10.45.0.2
+- Status: [SUCCESS]
+- Time taken: [751ms]
+- IMSI: [imsi-001011000000001]
+- TUN Interface: [uesimtun0]
+- IP Address: [10.45.0.2]
 
 ### Connectivity Tests
 | Test | Result | RTT (ms) |
