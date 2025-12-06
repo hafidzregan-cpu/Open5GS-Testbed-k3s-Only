@@ -595,7 +595,7 @@ ping -I uesimtun0 -c 4 10.45.0.1
 # Test internet connectivity
 ping -I uesimtun0 -c 4 8.8.8.8
 ```
-![Uploading Cuplikan layar dari 2025-11-29 15-56-20.png…]()
+<img width="644" height="178" alt="Cuplikan layar dari 2025-11-29 15-56-20" src="https://github.com/user-attachments/assets/f49f120b-7385-40a2-bc9c-963843bf4197" />
 
 
 ```bash
@@ -636,10 +636,10 @@ curl --interface uesimtun0 -I https://www.google.com
 ### Connectivity Tests
 | Test | Result | RTT (ms) |
 |------|--------|----------|
-| UPF Gateway (10.45.0.1) | ✓ PASS | 2.43 |
-| Internet (8.8.8.8) | ✓ PASS | 45.05 |
-| DNS Resolution | ✓ PASS | 3 |
-| HTTP/HTTPS | ✓ PASS | 51.84 |
+| UPF Gateway (10.45.0.1) | ✓ PASS | 0.065 |
+| Internet (8.8.8.8) | ✓ PASS | 142 |
+| DNS Resolution | ✓ PASS | - |
+| HTTP/HTTPS | ✓ PASS | - |
 
 ---
 
